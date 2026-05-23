@@ -72,6 +72,9 @@ class Enemy(pygame.sprite.Sprite):
         self.current_point_idx = 0
         self.rect.center = self.waypoints[self.current_point_idx]
 
+        self.x = float(self.rect.centerx)
+        self.y = float(self.rect.centery)
+
         self.max_shield = 0
         self.base_damage_to_base = 1  # Урон, наносимый базе при прорыве
 
@@ -110,7 +113,6 @@ class Enemy(pygame.sprite.Sprite):
         self.hp_font = pygame.font.SysFont("Arial", 14, bold=True)
 
     def take_damage(self, amount):
-        """Урон сначала поглощается силовым щитом, затем вычитается из здоровья"""
         if self.shield > 0:
             self.shield -= amount
             if self.shield < 0:
@@ -129,17 +131,23 @@ class Enemy(pygame.sprite.Sprite):
             return False
 
         target_x, target_y = self.waypoints[self.current_point_idx + 1]
-        dx = target_x - self.rect.centerx
-        dy = target_y - self.rect.centery
+        dx = target_x - self.x # Используем float координату
+        dy = target_y - self.y # Используем float координату
         distance = math.hypot(dx, dy)
 
-        # РЕШЕНО: max(self.speed, 3.0) не дает медленному боссу застрять на углах поворотов
+        # Проверку на близость оставляем, 3 пикселей вполне достаточно
         if distance <= max(self.speed, 3.0):
+            self.x = float(target_x)
+            self.y = float(target_y)
             self.rect.center = (target_x, target_y)
             self.current_point_idx += 1
         else:
-            self.rect.centerx += int((dx / distance) * self.speed)
-            self.rect.centery += int((dy / distance) * self.speed)
+            # Изменяем float переменные без принудительного отбрасывания дробной части int()
+            self.x += (dx / distance) * self.speed
+            self.y += (dy / distance) * self.speed
+            # Переносим результат в rect игры (автоматически приведется к int внутренностями Pygame)
+            self.rect.centerx = int(self.x)
+            self.rect.centery = int(self.y)
 
         self.draw_drone_sprite()
         return False
@@ -152,7 +160,6 @@ class Enemy(pygame.sprite.Sprite):
 
         center = self.size // 2
 
-        # Вращающиеся лопасти квадрокоптера
         blade_dist = center - 6
         blade_offsets = [0, math.pi / 2, math.pi, 3 * math.pi / 2]
 
@@ -162,25 +169,21 @@ class Enemy(pygame.sprite.Sprite):
             pygame.draw.circle(self.image, (40, 45, 50), (bx, by), 6 if self.enemy_type == "boss" else 5)
             pygame.draw.circle(self.image, (70, 75, 80), (bx, by), 3)
 
-        # Основной корпус дрона
         body_radius = center - 8 if self.enemy_type == "boss" else 12
         pygame.draw.circle(self.image, self.color_body, (center, center), body_radius)
         pygame.draw.circle(self.image, (50, 55, 60), (center, center), body_radius, 2)
 
-        # Светящийся индикатор / Глаз дрона
         hp_ratio = max(0.0, min(1.0, self.hp / self.max_hp))
         eye_color = (int(255 * (1 - hp_ratio)), int(255 * hp_ratio), 0) if hp_ratio > 0.5 else (
         255, int(255 * hp_ratio * 2), 0)
 
         if self.enemy_type == "kamikaze":
-            # У камикадзе индикатор зловеще пульсирует красным
             pulse = int(abs(math.sin(time_ms * 0.01)) * 100)
             eye_color = (155 + pulse, 0, 0)
 
         pygame.draw.circle(self.image, eye_color, (center, center), body_radius // 2)
         pygame.draw.circle(self.image, (255, 255, 255), (center - 1, center - 1), 2)
 
-        # Эффект энергетического купола (для дронов со щитом)
         if self.shield > 0:
             shield_alpha = int((self.shield / self.max_shield) * 110) + 40
             shield_surf = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
@@ -189,7 +192,6 @@ class Enemy(pygame.sprite.Sprite):
             self.image.blit(shield_surf, (0, 0))
 
     def draw_hover_hp(self, surface, mouse_pos):
-        """Показ здоровья обычных врагов в плавающем окошке при наведении мыши"""
         if self.rect.collidepoint(mouse_pos) and self.enemy_type != "boss":
             shield_str = f" | SHD: {self.shield}" if self.max_shield > 0 else ""
             text_surf = self.hp_font.render(f"HP: {self.hp}/{self.max_hp}{shield_str}", True, (255, 255, 255))
@@ -207,7 +209,6 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class Particle(pygame.sprite.Sprite):
-    """Класс частиц для красивых взрывов при уничтожении дронов"""
 
     def __init__(self, x, y):
         super().__init__()
