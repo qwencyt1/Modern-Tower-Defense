@@ -51,7 +51,7 @@ for _ in range(int(WIDTH * HEIGHT * 0.003)):
 
 attempts = 0
 while len(environment_objects) < 65 and attempts < 1000:
-    attempts += 1 
+    attempts += 1
     rx = random.randint(40, WIDTH - 40)
     ry = random.randint(80, HEIGHT - 160)
     if road.get_distance_to_pos((rx, ry)) < 45: continue
@@ -304,7 +304,7 @@ while running:
         menu.draw_game_over(screen)
 
     pygame.display.flip()
-    clock.tick(120)
+    clock.tick(60)
 
 pygame.quit()
 sys.exit()
